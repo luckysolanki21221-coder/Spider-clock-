@@ -1,0 +1,235 @@
+name: Build Spider Clock APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2'
+      - name: Create project files
+        run: |
+          mkdir -p SpiderClockWidget/app
+          cat > SpiderClockWidget/app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.spiderclock.widget'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.spiderclock.widget"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+          }
+          EOF
+          mkdir -p SpiderClockWidget/app/src/main
+          cat > SpiderClockWidget/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:allowBackup="true"
+                  android:icon="@drawable/dial"
+                  android:label="Spider Clock"
+                  android:theme="@android:style/Theme.Material.NoActionBar">
+
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+
+                  <receiver android:name=".SpiderClockWidget" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                      </intent-filter>
+                      <meta-data android:name="android.appwidget.provider"
+                                 android:resource="@xml/spider_clock_info" />
+                  </receiver>
+              </application>
+          </manifest>
+          EOF
+          mkdir -p SpiderClockWidget/app/src/main/java/com/spiderclock/widget
+          cat > SpiderClockWidget/app/src/main/java/com/spiderclock/widget/MainActivity.java <<'EOF'
+          package com.spiderclock.widget;
+
+          import android.app.Activity;
+          import android.graphics.Color;
+          import android.os.Bundle;
+          import android.view.Gravity;
+          import android.widget.TextView;
+
+          public class MainActivity extends Activity {
+              @Override protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  TextView t = new TextView(this);
+                  t.setText("Spider Clock installed\n\nHome screen par khali jagah long-press karo \u2192 Widgets \u2192 Spider Clock");
+                  t.setTextColor(Color.rgb(255, 150, 30));
+                  t.setBackgroundColor(Color.BLACK);
+                  t.setGravity(Gravity.CENTER);
+                  t.setTextSize(18);
+                  t.setPadding(48, 48, 48, 48);
+                  setContentView(t);
+              }
+          }
+          EOF
+          mkdir -p SpiderClockWidget/app/src/main/java/com/spiderclock/widget
+          cat > SpiderClockWidget/app/src/main/java/com/spiderclock/widget/SpiderClockWidget.java <<'EOF'
+          package com.spiderclock.widget;
+
+          import android.appwidget.AppWidgetProvider;
+
+          /** Clock hands are ticked by the system's AnalogClock in the layout, so nothing to update here. */
+          public class SpiderClockWidget extends AppWidgetProvider { }
+          EOF
+          mkdir -p SpiderClockWidget/app/src/main/res/layout
+          cat > SpiderClockWidget/app/src/main/res/layout/widget_spider_clock.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:tools="http://schemas.android.com/tools"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="#000000">
+              <AnalogClock
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent"
+                  android:dial="@drawable/dial"
+                  android:hand_hour="@drawable/hour"
+                  android:hand_minute="@drawable/minute"
+                  android:hand_second="@drawable/second"
+                  tools:targetApi="31" />
+          </FrameLayout>
+          EOF
+          mkdir -p SpiderClockWidget/app/src/main/res/values
+          cat > SpiderClockWidget/app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="widget_desc">Real-time spider analog clock</string>
+          </resources>
+          EOF
+          mkdir -p SpiderClockWidget/app/src/main/res/xml
+          cat > SpiderClockWidget/app/src/main/res/xml/spider_clock_info.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+              android:minWidth="180dp"
+              android:minHeight="180dp"
+              android:targetCellWidth="3"
+              android:targetCellHeight="3"
+              android:resizeMode="horizontal|vertical"
+              android:updatePeriodMillis="0"
+              android:initialLayout="@layout/widget_spider_clock"
+              android:previewImage="@drawable/preview"
+              android:description="@string/widget_desc"
+              android:widgetCategory="home_screen" />
+          EOF
+          mkdir -p SpiderClockWidget
+          cat > SpiderClockWidget/build.gradle <<'EOF'
+          plugins { id 'com.android.application' version '8.2.2' apply false }
+          EOF
+          mkdir -p SpiderClockWidget
+          cat > SpiderClockWidget/gradle.properties <<'EOF'
+          android.useAndroidX=true
+          org.gradle.jvmargs=-Xmx2g
+          EOF
+          mkdir -p SpiderClockWidget
+          cat > SpiderClockWidget/settings.gradle <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositories { google(); mavenCentral() } }
+          rootProject.name = "SpiderClockWidget"
+          include ':app'
+          EOF
+          cat > gen.py <<'EOF'
+          import math, os
+          from PIL import Image, ImageDraw, ImageFilter, ImageFont
+          S=1024; K=2; N=S*K; c=N/2; R=0.36*S*K
+          OR=(255,150,30)
+          def bez(p0,p1,p2,n=24):
+              return [((1-u)**2*p0[0]+2*(1-u)*u*p1[0]+u*u*p2[0],(1-u)**2*p0[1]+2*(1-u)*u*p1[1]+u*u*p2[1]) for u in [i/n for i in range(n+1)]]
+          def leg(d,x,y,a,L,bend,w0,w1,col=OR+(255,)):
+              dx,dy=math.sin(a),-math.cos(a); nx,ny=-dy,dx
+              p0=(x,y);p1=(x+dx*L*.5+nx*bend*L,y+dy*L*.5+ny*bend*L);p2=(x+dx*L,y+dy*L)
+              pts=bez(p0,p1,p2)
+              for i in range(1,len(pts)):
+                  u=i/len(pts);w=w0+(w1-w0)*u
+                  d.line([pts[i-1],pts[i]],fill=col,width=max(1,int(w)))
+                  d.ellipse([pts[i][0]-w/2,pts[i][1]-w/2,pts[i][0]+w/2,pts[i][1]+w/2],fill=col)
+          def glow(layer,rad):
+              g=layer.filter(ImageFilter.GaussianBlur(rad*K))
+              out=Image.alpha_composite(g,layer); return out
+          def fin(im,name):
+              im.resize((S,S),Image.LANCZOS).save(name)
+
+          # ---- dial ----
+          dial=Image.new('RGBA',(N,N),(0,0,0,255))
+          # numbers
+          nl=Image.new('RGBA',(N,N),(0,0,0,0)); d=ImageDraw.Draw(nl)
+          f=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf',int(R*0.17))
+          for n in range(1,13):
+              a=n/12*2*math.pi-math.pi/2
+              d.text((c+math.cos(a)*R*1.08,c+math.sin(a)*R*1.08),str(n),font=f,fill=OR+(110,),anchor='mm')
+          dial=Image.alpha_composite(dial,nl)
+          # webs
+          webs=[(0,-.39,.17,.3),(-.38,-.11,.27,.1),(.39,-.08,.27,.5),(-.33,.32,.17,.2),(.11,.51,.24,.4)]
+          wl=Image.new('RGBA',(N,N),(0,0,0,0)); d=ImageDraw.Draw(wl)
+          for wx,wy,wr,rot in webs:
+              ox,oy,r=c+wx*R,c+wy*R,wr*R; sp=14
+              for i in range(sp):
+                  a=i/sp*2*math.pi+rot
+                  d.line([(ox,oy),(ox+math.cos(a)*r,oy+math.sin(a)*r)],fill=OR+(150,),width=2*K//2+1)
+              for k in range(1,7):
+                  rr=r*k/6
+                  for i in range(sp):
+                      a1=i/sp*2*math.pi+rot;a2=(i+1)/sp*2*math.pi+rot;am=(a1+a2)/2
+                      pts=bez((ox+math.cos(a1)*rr,oy+math.sin(a1)*rr),(ox+math.cos(am)*rr*.88,oy+math.sin(am)*rr*.88),(ox+math.cos(a2)*rr,oy+math.sin(a2)*rr),8)
+                      d.line(pts,fill=OR+(150,),width=2*K//2+1)
+          dial=Image.alpha_composite(dial,glow(wl,2))
+          # thread + spider
+          sp=Image.new('RGBA',(N,N),(0,0,0,0)); d=ImageDraw.Draw(sp)
+          d.line([(c,0),(c,c-R*.06)],fill=(255,255,255,230),width=2*K)
+          legs=[(-62,.30,-.25),(-118,.28,.25),(118,.28,-.25),(-150,.24,.2),(150,.24,-.2),(-100,.22,-.3)]
+          for a,L,b in legs: leg(d,c,c,math.radians(a),L*R,b,R*.022,R*.006)
+          d.ellipse([c-R*.05,c+R*.035-R*.075,c+R*.05,c+R*.035+R*.075],fill=OR+(255,))
+          d.ellipse([c-R*.036,c-R*.04-R*.04,c+R*.036,c-R*.04+R*.04],fill=OR+(255,))
+          leg(d,c-R*.015,c-R*.06,math.radians(-170),R*.05,.1,R*.012,R*.004)
+          leg(d,c+R*.015,c-R*.06,math.radians(170),R*.05,-.1,R*.012,R*.004)
+          dial=Image.alpha_composite(dial,glow(sp,6))
+          fin(dial,'dial.png')
+
+          def hand(name,L,bend,w0,w1,rad):
+              im=Image.new('RGBA',(N,N),(0,0,0,0)); d=ImageDraw.Draw(im)
+              leg(d,c,c,0,L*R,bend,w0*R,w1*R)
+              d.ellipse([c-R*.012,c-R*.012,c+R*.012,c+R*.012],fill=(0,0,0,255))
+              fin(glow(im,rad),name)
+          hand('hour.png',.50,.18,.030,.010,5)
+          hand('minute.png',.78,-.16,.026,.007,5)
+          hand('second.png',.98,.04,.011,.004,3)
+          # preview
+          pv=dial.resize((S,S),Image.LANCZOS)
+          t=0
+          import datetime
+          h,m,s=10,10,30
+          for nm,ang in (('hour.png',(h+m/60)/12*360),('minute.png',m/60*360),('second.png',s/60*360)):
+              im=Image.open(nm).rotate(-ang,resample=Image.BICUBIC)
+              pv=Image.alpha_composite(pv.convert('RGBA'),im)
+          pv.save('preview.png')
+          EOF
+          pip install pillow
+          python3 gen.py
+          mkdir -p SpiderClockWidget/app/src/main/res/drawable
+          for f in dial hour minute second preview; do cp $f.png SpiderClockWidget/app/src/main/res/drawable/$f.png; done
+      - name: Build APK
+        working-directory: SpiderClockWidget
+        run: gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SpiderClock-APK
+          path: SpiderClockWidget/app/build/outputs/apk/debug/app-debug.apk
